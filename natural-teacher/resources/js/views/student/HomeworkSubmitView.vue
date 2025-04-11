@@ -3,123 +3,85 @@
     <div class="homework-submit">
       <h1 class="page-title">Submit Your Homework</h1>
       
-      <div class="step-container" v-if="currentStep === 3">
-        <h2>Step 3</h2>
-        <p>Enter your homework question:</p>
-        
-        <!-- Debug panel - only shown in debug mode -->
-        <div v-if="debugMode" class="debug-panel">
-          <h3>Connection Status</h3>
-          <p>WebSocket: {{ wsStatus }}</p>
-          <p>Attempts: {{ connectionAttempts }}/{{ maxConnectionAttempts }}</p>
-          <div class="debug-actions">
-            <button @click="testConnection" class="btn btn-secondary btn-sm">
-              Test Connection
-            </button>
-            <button @click="toggleDebugMode" class="btn btn-secondary btn-sm">
-              Hide Debug
-            </button>
-          </div>
-        </div>
-        
-        <div class="input-container">
-          <!-- Homework text input -->
-          <div class="homework-input">
-            <label for="homework-text">Type your homework question:</label>
-            <textarea
-              id="homework-text"
-              v-model="homeworkContent"
-              placeholder="Enter your homework question or problem here..."
-              rows="6"
-            ></textarea>
-          </div>
+      <div class="homework-workflow" v-if="currentStep === 1">
+        <div class="step-container">
+          <h2>Step one 1</h2>
+          <p>What subject are you working on?</p>
           
-          <!-- File upload option -->
-          <div class="file-upload">
-            <button @click="triggerFileInput" class="btn btn-outline" :disabled="isSubmitting">
-              <i class="fas fa-upload"></i> Upload Image
-            </button>
-            
-            <input 
-              type="file" 
-              ref="fileInput" 
-              @change="handleFileUpload" 
-              accept="image/*"
-              style="display: none"
-            >
-            
-            <div v-if="uploadedImage" class="image-preview">
-              <img :src="uploadedImage" alt="Homework preview" class="preview-image">
-              <button @click="removeImage" class="btn btn-sm btn-danger">
-                <i class="fas fa-times"></i> Remove
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Submit button -->
-        <div class="submit-controls">
-          <button 
-            class="btn btn-secondary" 
-            @click="goToPreviousStep"
-            :disabled="isSubmitting"
-          >
-            <i class="fas fa-arrow-left"></i> Back
-          </button>
-          
-          <button 
-            class="btn btn-primary" 
-            @click="submitHomework"
-            :disabled="isSubmitting || (!homeworkContent && !uploadedImage)"
-          >
-            <span v-if="isSubmitting">
-              <i class="fas fa-spinner fa-spin"></i> Submitting...
-            </span>
-            <span v-else>
-              <i class="fas fa-paper-plane"></i> Submit Homework
-            </span>
-          </button>
-        </div>
-        
-        <!-- Conversation area (will show after submission) -->
-        <div v-if="showConversation" class="conversation-area">
-          <div class="messages-container" ref="messagesContainer">
-            <div v-if="messages.length === 0" class="empty-messages">
-              <p>Your conversation will appear here...</p>
-            </div>
-            
-            <div 
-              v-for="(message, index) in messages" 
-              :key="index" 
-              class="message" 
-              :class="message.sender"
-            >
-              <div class="message-content">
-                <div v-if="message.isComplete" v-html="formatMessageContent(message.content)"></div>
-                <div v-else>
-                  <span v-html="formatMessageContent(message.content)"></span>
-                  <span class="typing-indicator">
-                    <span class="dot"></span>
-                    <span class="dot"></span>
-                    <span class="dot"></span>
-                  </span>
-                </div>
+          <div class="subject-selector">
+            <div class="subjects-grid">
+              <div
+                v-for="subject in subjects"
+                :key="subject.id"
+                class="subject-card"
+                :class="{ 'selected': selectedSubject?.id === subject.id }"
+                @click="selectSubject(subject)"
+              >
+                <i :class="subject.icon"></i>
+                <h3>{{ subject.name }}</h3>
+                <p>{{ subject.description }}</p>
               </div>
             </div>
           </div>
           
-          <div class="input-reply" v-if="messages.length > 0">
-            <textarea 
-              v-model="replyMessage" 
-              placeholder="Ask a follow-up question..." 
-              @keydown.enter.prevent="sendReply"
-              :disabled="isReplying"
-            ></textarea>
-            <button 
-              @click="sendReply" 
-              :disabled="isReplying || !replyMessage.trim()"
+          <div class="navigation-buttons">
+            <button class="btn btn-secondary" disabled>
+              <i class="fas fa-arrow-left"></i> Back
+            </button>
+            <button class="btn btn-primary" @click="goToStep(2)" :disabled="!selectedSubject">
+              Next <i class="fas fa-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="homework-workflow" v-if="currentStep === 2">
+        <div class="step-container">
+          <h2>Step 2</h2>
+          <p>Select a topic:</p>
+          
+          <div class="topics-grid">
+            <div
+              v-for="topic in filteredTopics"
+              :key="topic.id"
+              class="topic-card"
+              :class="{ 'selected': selectedTopic?.id === topic.id }"
+              @click="selectTopic(topic)"
             >
-              <i class="fas fa-paper-plane"></i>
+              <h3>{{ topic.name }}</h3>
+              <p>{{ topic.description }}</p>
+              <div class="topic-footer">
+                <span>Difficulty: {{ topic.difficulty }}</span>
+                <span>{{ topic.points_available }} points</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="navigation-buttons">
+            <button class="btn btn-secondary" @click="goToStep(1)">
+              <i class="fas fa-arrow-left"></i> Back
+            </button>
+            <button class="btn btn-primary" @click="goToStep(3)" :disabled="!selectedTopic">
+              Next <i class="fas fa-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="homework-workflow" v-if="currentStep === 3">
+        <div class="step-container full-height">
+          <h2>Step 3</h2>
+          <p>Enter your homework question:</p>
+          
+          <!-- Real-time conversation component -->
+          <real-time-conversation 
+            :sessionId="conversationSessionId"
+            class="conversation-container"
+          />
+          
+          <div class="navigation-buttons">
+            <button class="btn btn-secondary" @click="goToStep(2)">
+              <i class="fas fa-arrow-left"></i> Back
             </button>
           </div>
         </div>
@@ -127,833 +89,518 @@
     </div>
   </student-layout>
 </template>
-
 <script>
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
+import StudentLayout from '../../layouts/StudentLayout.vue';
+import axios from 'axios';
+import RealTimeConversation from '../../components/RealTimeConversation.vue';
+
 export default {
   name: 'HomeworkSubmitView',
   components: {
-    StudentLayout: () => import('../../layouts/StudentLayout.vue')
+    StudentLayout,
+    RealTimeConversation
   },
-  data() {
-    return {
-      currentStep: 3,
-      homeworkContent: '',
-      uploadedImage: null,
-      isSubmitting: false,
-      showConversation: false,
-      messages: [],
-      replyMessage: '',
-      isReplying: false,
-      websocket: null,
-      sessionId: `homework-${Date.now()}`,
-      connectionAttempts: 0,
-      maxConnectionAttempts: 5,
-      wsStatus: 'Not connected',
-      debugMode: true, // Set to false in production
-      apiBaseUrl: 'http://127.0.0.1:5000', // Backend API URL
-      file: null // Store the actual file object
-    };
-  },
-  methods: {
-    toggleDebugMode() {
-      this.debugMode = !this.debugMode;
-    },
+  setup() {
+    // State
+    const currentStep = ref(1);
+    const showWorkflow = ref(true);
+    const selectedSubject = ref(null);
+    const selectedTopic = ref(null);
+    const conversationSessionId = ref('');
+    const websocket = ref(null);
+    const isTeacherConnected = ref(false);
+    const messages = ref([]);
+    const newMessage = ref('');
+    const attachedFile = ref(null);
+    const attachmentPreview = ref(null);
+    const fileInput = ref(null);
+    const messageInput = ref(null);
+    const messagesContainer = ref(null);
+    const isMessageSending = ref(false);
+    const currentStreamingMessage = ref(null);
     
-    goToPreviousStep() {
-      this.currentStep = 2; // Assuming previous step is 2
-    },
+    // Get subjects and topics from API
+    const subjects = ref([]);
+    const topics = ref([]);
     
-    triggerFileInput() {
-      if (this.$refs.fileInput) {
-        this.$refs.fileInput.click();
-      }
-    },
+    const filteredTopics = computed(() => {
+      if (!selectedSubject.value) return [];
+      return topics.value.filter(topic => topic.subject_id === selectedSubject.value.id);
+    });
     
-    handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      
-      this.file = file; // Store the file object
-      
-      // Create a preview URL for the uploaded image
-      this.uploadedImage = URL.createObjectURL(file);
-    },
-    
-    removeImage() {
-      this.uploadedImage = null;
-      this.file = null;
-      if (this.$refs.fileInput) {
-        this.$refs.fileInput.value = '';
-      }
-    },
-    
-    formatMessageContent(content) {
-      if (!content) return '';
-      
-      // Convert to string and escape HTML
-      const escaped = String(content)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-      
-      // Convert URLs to links
-      const withLinks = escaped.replace(
-        /(https?:\/\/[^\s]+)/g, 
-        '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-      );
-      
-      // Convert newlines to <br> tags
-      return withLinks.replace(/\n/g, '<br>');
-    },
-    
-    testConnection() {
-      this.wsStatus = 'Testing connection...';
-      
-      // Test API connection first
-      fetch(`${this.apiBaseUrl}/health`)
-        .then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-          throw new Error(`API returned ${response.status}`);
-        })
-        .then(data => {
-          this.wsStatus = `API available: ${JSON.stringify(data)}. Testing WebSocket...`;
-          // Now test WebSocket
-          this.connectWebSocket(true);
-        })
-        .catch(error => {
-          this.wsStatus = `API error: ${error.message}`;
-          console.error('API connection test failed:', error);
-        });
-    },
-    
-    connectWebSocket(isTest = false) {
-      // Create a WebSocket connection to the backend
-      const wsUrl = `ws://${this.apiBaseUrl.replace(/^https?:\/\//, '')}/ws/${this.sessionId}`;
-      
-      console.log(`Attempting to connect to WebSocket: ${wsUrl}`);
-      this.wsStatus = 'Connecting...';
-      
-      // Close existing connection if any
-      if (this.websocket) {
-        this.websocket.close();
-      }
-      
+    // Fetch subjects and topics
+    const fetchSubjects = async () => {
       try {
-        this.websocket = new WebSocket(wsUrl);
-        
-        this.websocket.onopen = (event) => {
-          console.log('WebSocket connection established', event);
-          this.wsStatus = 'Connected';
-          this.connectionAttempts = 0;
-          
-          if (isTest) {
-            // Send a test message
-            this.websocket.send(JSON.stringify({ 
-              action: 'test', 
-              content: 'Testing connection'
-            }));
-          }
-        };
-        
-        this.websocket.onmessage = (event) => {
-          console.log('WebSocket message received:', event.data);
-          
-          if (isTest) {
-            this.wsStatus = 'Test message received: ' + 
-              (event.data.length > 30 ? 
-                event.data.substring(0, 30) + '...' : 
-                event.data);
-            return;
-          }
-          
-          try {
-            // Try to parse as JSON for control messages
-            const data = JSON.parse(event.data);
-            
-            if (data.action === 'start_response') {
-              // Add a new teacher message that will be streamed
-              this.messages.push({
-                sender: 'teacher',
-                content: '',
-                timestamp: new Date(),
-                isComplete: false
-              });
-              
-              // Scroll to bottom
-              this.scrollToBottom();
-            } 
-            else if (data.action === 'end_response') {
-              // Mark the last message as complete
-              const lastIndex = this.messages.findIndex(m => 
-                m.sender === 'teacher' && !m.isComplete
-              );
-              
-              if (lastIndex !== -1) {
-                // Create a new array with the updated message to ensure reactivity
-                const updatedMessages = [...this.messages];
-                updatedMessages[lastIndex] = {
-                  ...updatedMessages[lastIndex],
-                  isComplete: true
-                };
-                this.messages = updatedMessages;
-              }
-            }
-          } catch (e) {
-            // Not JSON, treat as a text chunk for the current response
-            const lastIndex = this.messages.findIndex(m => 
-              m.sender === 'teacher' && !m.isComplete
-            );
-            
-            if (lastIndex !== -1) {
-              // Create a new array with the updated message to ensure reactivity
-              const updatedMessages = [...this.messages];
-              updatedMessages[lastIndex] = {
-                ...updatedMessages[lastIndex],
-                content: updatedMessages[lastIndex].content + event.data
-              };
-              this.messages = updatedMessages;
-              
-              // Scroll to bottom as content arrives
-              this.scrollToBottom();
-            } else {
-              // If no incomplete message exists, create a new one
-              this.messages.push({
-                sender: 'teacher',
-                content: event.data,
-                timestamp: new Date(),
-                isComplete: false
-              });
-              
-              // Scroll to bottom
-              this.scrollToBottom();
-            }
-          }
-        };
-        
-        this.websocket.onclose = (event) => {
-          console.log('WebSocket connection closed', event);
-          this.wsStatus = `Disconnected (code: ${event.code})`;
-          
-          // Attempt to reconnect if this wasn't a normal closure and not a test
-          if (!isTest && event.code !== 1000 && 
-              this.connectionAttempts < this.maxConnectionAttempts) {
-            this.connectionAttempts++;
-            const reconnectDelay = 1000 * this.connectionAttempts;
-            
-            console.log(`Attempting to reconnect (${this.connectionAttempts}/${this.maxConnectionAttempts}) in ${reconnectDelay}ms...`);
-            this.wsStatus = `Reconnecting (${this.connectionAttempts}/${this.maxConnectionAttempts}) in ${reconnectDelay}ms...`;
-            
-            setTimeout(() => {
-              this.connectWebSocket();
-            }, reconnectDelay);
-          }
-        };
-        
-        this.websocket.onerror = (error) => {
-          console.error('WebSocket error:', error);
-          this.wsStatus = 'Error connecting';
-        };
+        const response = await axios.get('/api/subjects');
+        subjects.value = response.data;
       } catch (error) {
-        console.error('Error creating WebSocket:', error);
-        this.wsStatus = 'Failed to create WebSocket: ' + error.message;
+        console.error('Failed to fetch subjects:', error);
       }
-    },
+    };
     
-    scrollToBottom() {
-      this.$nextTick(() => {
-        if (this.$refs.messagesContainer) {
-          this.$refs.messagesContainer.scrollTop = 
-            this.$refs.messagesContainer.scrollHeight;
+    const fetchTopics = async () => {
+      try {
+        const response = await axios.get('/api/topics');
+        topics.value = response.data;
+      } catch (error) {
+        console.error('Failed to fetch topics:', error);
+      }
+    };
+    
+    // WebSocket connection
+    const connectWebSocket = (sessionId) => {
+      // Close existing connection if any
+      if (websocket.value) {
+        websocket.value.close();
+      }
+      
+      // Determine the WebSocket URL
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      // const host = window.location.host;
+      const host = `${window.location.hostname}:5000`; 
+      const wsUrl = `${protocol}//${host}/ws/${sessionId}`;
+      
+      // Create new WebSocket connection
+      websocket.value = new WebSocket(wsUrl);
+      
+      // Set up event handlers
+      websocket.value.onopen = handleSocketOpen;
+      websocket.value.onmessage = handleSocketMessage;
+      websocket.value.onclose = handleSocketClose;
+      websocket.value.onerror = handleSocketError;
+    };
+    
+    const handleSocketOpen = (event) => {
+      console.log('WebSocket connection established');
+      isTeacherConnected.value = true;
+      
+      // Send session info
+      if (selectedSubject.value && selectedTopic.value) {
+        sendSessionInfo();
+      }
+    };
+    
+    const handleSocketMessage = (event) => {
+      try {
+        // First try to parse as JSON (for control messages)
+        const data = JSON.parse(event.data);
+        
+        if (data.action === 'start_response') {
+          // Start a new teacher message
+          const newMessageId = Date.now().toString();
+          currentStreamingMessage.value = newMessageId;
+          
+          messages.value.push({
+            id: newMessageId,
+            sender: 'teacher',
+            content: '',
+            timestamp: new Date(),
+            isComplete: false,
+            feedbackGiven: false
+          });
+          
+          // Scroll to the bottom
+          nextTick(() => {
+            scrollToBottom();
+          });
+        } else if (data.action === 'end_response') {
+          // Complete the current streaming message
+          const index = messages.value.findIndex(m => m.id === currentStreamingMessage.value);
+          if (index !== -1) {
+            messages.value[index].isComplete = true;
+          }
+          
+          currentStreamingMessage.value = null;
+          isMessageSending.value = false;
+        } else if (data.action === 'connection_established') {
+          isTeacherConnected.value = true;
         }
-      });
-    },
+      } catch (e) {
+        // Not JSON, treat as streaming text content
+        if (currentStreamingMessage.value) {
+          const index = messages.value.findIndex(m => m.id === currentStreamingMessage.value);
+          if (index !== -1) {
+            messages.value[index].content += event.data;
+            
+            // Scroll to the bottom as new content arrives
+            nextTick(() => {
+              scrollToBottom();
+            });
+          }
+        }
+      }
+    };
     
-    async submitHomework() {
-      if ((!this.homeworkContent && !this.uploadedImage) || this.isSubmitting) {
+    const handleSocketClose = (event) => {
+      console.log('WebSocket connection closed:', event);
+      isTeacherConnected.value = false;
+      
+      // Attempt to reconnect after a delay if not an intentional close
+      if (event.code !== 1000) {
+        setTimeout(() => {
+          if (conversationSessionId.value) {
+            connectWebSocket(conversationSessionId.value);
+          }
+        }, 3000);
+      }
+    };
+    
+    const handleSocketError = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
+    const sendSessionInfo = () => {
+      if (!websocket.value || websocket.value.readyState !== WebSocket.OPEN) return;
+      
+      const sessionInfo = {
+        action: 'set_session_info',
+        user_info: {
+          subject_info: {
+            subject: selectedSubject.value.name,
+            subject_id: selectedSubject.value.id
+          },
+          topic_info: {
+            topic: selectedTopic.value.name,
+            topic_id: selectedTopic.value.id
+          }
+        }
+      };
+      
+      websocket.value.send(JSON.stringify(sessionInfo));
+    };
+    
+    const sendMessage = () => {
+      if (isMessageSending.value || (!newMessage.value.trim() && !attachedFile.value)) return;
+      
+      isMessageSending.value = true;
+      
+      // Add user message to the chat
+      messages.value.push({
+        id: Date.now().toString(),
+        sender: 'student',
+        content: newMessage.value,
+        timestamp: new Date(),
+        isComplete: true
+      });
+      
+      // Create message payload
+      const payload = {
+        action: 'ask',
+        content: newMessage.value,
+        session_id: conversationSessionId.value
+      };
+      
+      // Add file if attached
+      if (attachedFile.value) {
+        // Convert file to base64 string for websocket transmission
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          payload.attachment = {
+            filename: attachedFile.value.name,
+            mime_type: attachedFile.value.type,
+            data: e.target.result.split(',')[1] // Remove data URL prefix
+          };
+          
+          sendWebSocketMessage(payload);
+        };
+        
+        reader.readAsDataURL(attachedFile.value);
+      } else {
+        // Send message without attachment
+        sendWebSocketMessage(payload);
+      }
+      
+      // Clear input
+      newMessage.value = '';
+      attachedFile.value = null;
+      attachmentPreview.value = null;
+      
+      // Reset textarea height
+      if (messageInput.value) {
+        messageInput.value.style.height = 'auto';
+      }
+      
+      // Scroll to bottom
+      nextTick(() => {
+        scrollToBottom();
+      });
+    };
+    
+    const sendWebSocketMessage = (payload) => {
+      if (!websocket.value || websocket.value.readyState !== WebSocket.OPEN) {
+        // Reconnect and queue the message
+        connectWebSocket(conversationSessionId.value);
+        setTimeout(() => {
+          sendWebSocketMessage(payload);
+        }, 1000);
         return;
       }
       
-      this.isSubmitting = true;
-      
-      try {
-        // Try WebSocket first if debug mode is on
-        if (this.debugMode) {
-          this.connectWebSocket();
-          
-          // Wait for connection or timeout
-          let connectionTimeoutMs = 3000; // 3 seconds timeout
-          const startTime = Date.now();
-          
-          // Keep checking connection status until connected or timeout
-          while (
-            (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) && 
-            (Date.now() - startTime < connectionTimeoutMs)
-          ) {
-            // Wait a bit before checking again
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-          
-          // If connected, submit via WebSocket
-          if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-            await this.submitViaWebSocket();
-          } else {
-            // Fallback to HTTP
-            console.log('WebSocket connection failed, falling back to HTTP');
-            await this.submitViaHTTP();
-          }
-        } else {
-          // In production, just use HTTP
-          await this.submitViaHTTP();
-        }
-        
-        // Show conversation area regardless of submission method
-        this.showConversation = true;
-        
-        // Scroll to bottom
-        this.scrollToBottom();
-      } catch (error) {
-        console.error('Error submitting homework:', error);
-        alert('There was an error submitting your homework. Please try again.');
-      } finally {
-        this.isSubmitting = false;
-      }
-    },
+      websocket.value.send(JSON.stringify(payload));
+    };
     
-    async submitViaWebSocket() {
-      return new Promise((resolve, reject) => {
-        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
-          reject(new Error('WebSocket not connected'));
-          return;
-        }
+    const selectSubject = (subject) => {
+      selectedSubject.value = subject;
+      selectedTopic.value = null; // Reset topic when subject changes
+    };
+    
+    const selectTopic = (topic) => {
+      selectedTopic.value = topic;
+    };
+    
+    const goToStep = (step) => {
+      currentStep.value = step;
+      
+      // If going to the conversation step, initialize the session
+      if (step === 3) {
+        // Generate a session ID that includes subject and topic info
+        conversationSessionId.value = `homework-${selectedSubject.value.id}-${selectedTopic.value.id}-${Date.now()}`;
         
-        // Add user message to conversation
-        this.messages.push({
-          sender: 'user',
-          content: this.homeworkContent || 'I need help with this homework.',
-          timestamp: new Date(),
-          isComplete: true
-        });
+        // Connect to WebSocket
+        connectWebSocket(conversationSessionId.value);
+      }
+    };
+    
+    const toggleWorkflow = () => {
+      showWorkflow.value = !showWorkflow.value;
+      if (showWorkflow.value) {
+        currentStep.value = 2; // Go back to topic selection
+      }
+    };
+    
+    const refreshSession = () => {
+      // Clear messages and start a new session
+      messages.value = [];
+      
+      // Generate a new session ID
+      conversationSessionId.value = `homework-${selectedSubject.value.id}-${selectedTopic.value.id}-${Date.now()}`;
+      
+      // Reconnect WebSocket
+      connectWebSocket(conversationSessionId.value);
+    };
+    
+    const attachFile = () => {
+      if (fileInput.value) {
+        fileInput.value.click();
+      }
+    };
+    
+    const handleFileSelected = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        attachedFile.value = file;
         
-        // Prepare message payload
-        const payload = {
-          action: 'ask',
-          content: this.homeworkContent || 'I need help with this homework.',
-          session_id: this.sessionId,
-          student_age: 10, // Default values
-          student_level: 3,
-          learning_style: 'visual'
-        };
-        
-        // If there's an image, we need to convert it to base64
-        if (this.file) {
+        // Create preview if it's an image
+        if (file.type.startsWith('image/')) {
           const reader = new FileReader();
           reader.onload = (e) => {
-            try {
-              // Get base64 data
-              const base64Data = e.target.result.split(',')[1];
-              
-              // Add to payload
-              payload.attachment = {
-                filename: this.file.name,
-                mime_type: this.file.type,
-                data: base64Data
-              };
-              
-              // Send the payload
-              this.websocket.send(JSON.stringify(payload));
-              resolve();
-            } catch (error) {
-              reject(error);
-            }
+            attachmentPreview.value = e.target.result;
           };
-          
-          reader.onerror = (error) => {
-            reject(error);
-          };
-          
-          reader.readAsDataURL(this.file);
+          reader.readAsDataURL(file);
         } else {
-          // No file, just send the payload
-          try {
-            this.websocket.send(JSON.stringify(payload));
-            resolve();
-          } catch (error) {
-            reject(error);
+          attachmentPreview.value = null;
+        }
+      }
+    };
+    
+    const removeAttachment = () => {
+      attachedFile.value = null;
+      attachmentPreview.value = null;
+      if (fileInput.value) {
+        fileInput.value.value = '';
+      }
+    };
+    
+    const formatTime = (timestamp) => {
+      return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+    
+    const isImageAttachment = computed(() => {
+      return attachedFile.value && attachedFile.value.type.startsWith('image/');
+    });
+    
+    const formatMessage = (content) => {
+      // Basic formatting like newlines to <br> and links
+      if (!content) return '';
+      
+      // Replace URLs with links
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const withLinks = content.replace(urlRegex, '<a href="$1" target="_blank">$1</a>');
+      
+      // Replace newlines with <br>
+      return withLinks.replace(/\n/g, '<br>');
+    };
+    
+    const scrollToBottom = () => {
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      }
+    };
+    
+    const adjustTextareaHeight = () => {
+      if (messageInput.value) {
+        messageInput.value.style.height = 'auto';
+        messageInput.value.style.height = `${messageInput.value.scrollHeight}px`;
+      }
+    };
+    
+    const provideMessageFeedback = (messageIndex, isHelpful) => {
+      const message = messages.value[messageIndex];
+      if (!message || message.sender !== 'teacher' || message.feedbackGiven) return;
+      
+      // Mark feedback as given
+      message.feedbackGiven = true;
+      
+      // Send feedback to server
+      if (websocket.value && websocket.value.readyState === WebSocket.OPEN) {
+        websocket.value.send(JSON.stringify({
+          action: 'feedback',
+          feedback: {
+            message_id: message.id,
+            is_helpful: isHelpful
           }
-        }
-      });
-    },
-    
-    async submitViaHTTP() {
-      // Fallback to HTTP API if WebSocket is unavailable
-      const apiUrl = `${this.apiBaseUrl}/real-time-conversation`;
-      
-      // Prepare form data for file upload
-      const formData = new FormData();
-      formData.append('content', this.homeworkContent || 'I need help with this homework.');
-      formData.append('session_id', this.sessionId);
-      formData.append('student_age', 10); // Default values
-      formData.append('student_level', 3);
-      formData.append('learning_style', 'visual');
-      
-      if (this.file) {
-        formData.append('file', this.file);
+        }));
       }
-      
-      // Add user message to conversation
-      this.messages.push({
-        sender: 'user',
-        content: this.homeworkContent || 'I need help with this homework.',
-        timestamp: new Date(),
-        isComplete: true
-      });
-      
-      try {
-        // Send the HTTP request
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Add teacher response
-        this.messages.push({
-          sender: 'teacher',
-          content: data.reply,
-          timestamp: new Date(),
-          isComplete: true
-        });
-        
-        return data;
-      } catch (error) {
-        console.error('Error submitting homework via HTTP:', error);
-        
-        // Add error message to the conversation
-        this.messages.push({
-          sender: 'system',
-          content: 'Sorry, there was an error processing your request. Please try again.',
-          timestamp: new Date(),
-          isComplete: true
-        });
-        
-        throw error;
+    };
+    
+    // Fetch data on mount
+    onMounted(() => {
+      fetchSubjects();
+      fetchTopics();
+    });
+    
+    // Clean up WebSocket connection when component unmounts
+    onBeforeUnmount(() => {
+      if (websocket.value) {
+        websocket.value.close();
       }
-    },
+    });
     
-    async sendReply() {
-      if (!this.replyMessage.trim() || this.isReplying) return;
-      
-      this.isReplying = true;
-      
-      try {
-        // Add user reply to messages
-        this.messages.push({
-          sender: 'user',
-          content: this.replyMessage,
-          timestamp: new Date(),
-          isComplete: true
-        });
-        
-        // Store the message and clear input
-        const message = this.replyMessage;
-        this.replyMessage = '';
-        
-        // Scroll to bottom
-        this.scrollToBottom();
-        
-        // Try WebSocket first if it's connected
-        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-          try {
-            this.websocket.send(JSON.stringify({
-              action: 'ask',
-              content: message,
-              session_id: this.sessionId,
-              student_age: 10,
-              student_level: 3,
-              learning_style: 'visual'
-            }));
-          } catch (error) {
-            console.error('Error sending via WebSocket:', error);
-            // Fall back to HTTP
-            await this.sendReplyViaHTTP(message);
-          }
-        } else {
-          // Use HTTP as fallback
-          await this.sendReplyViaHTTP(message);
-        }
-      } catch (error) {
-        console.error('Error sending reply:', error);
-        
-        // Add error message
-        this.messages.push({
-          sender: 'system',
-          content: 'Sorry, there was an error sending your message. Please try again.',
-          timestamp: new Date(),
-          isComplete: true
-        });
-        
-        // Scroll to bottom
-        this.scrollToBottom();
-      } finally {
-        this.isReplying = false;
-      }
-    },
-    
-    async sendReplyViaHTTP(message) {
-      const apiUrl = `${this.apiBaseUrl}/real-time-conversation`;
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: message,
-          session_id: this.sessionId,
-          student_age: 10,
-          student_level: 3,
-          learning_style: 'visual'
-        })
+    // Watch for messages changes to scroll to bottom
+    watch(messages, () => {
+      nextTick(() => {
+        scrollToBottom();
       });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Add teacher response
-      this.messages.push({
-        sender: 'teacher',
-        content: data.reply,
-        timestamp: new Date(),
-        isComplete: true
-      });
-      
-      // Scroll to bottom
-      this.scrollToBottom();
-      
-      return data;
-    }
-  },
-  mounted() {
-    // For debugging
-    if (this.debugMode) {
-      console.log('HomeworkSubmitView mounted');
-      // Make component accessible in console for debugging
-      if (window) window._homeworkComponent = this;
-    }
+    }, { deep: true });
     
-    // Extract API base URL from current location
-    const currentHost = window.location.hostname;
-    const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-    
-    // Update API URL based on environment
-    if (currentHost === '127.0.0.1' || currentHost === 'localhost') {
-      // Development - use port 5000
-      this.apiBaseUrl = `http://${currentHost}:5000`;
-    } else {
-      // Production - use same host but different port if needed
-      this.apiBaseUrl = `${window.location.protocol}//${currentHost}:5000`;
-    }
-    
-    console.log(`API base URL: ${this.apiBaseUrl}`);
-  },
-  beforeDestroy() {
-    // Close WebSocket connection when component is destroyed
-    if (this.websocket) {
-      this.websocket.close();
-    }
-    
-    // Clean up any object URLs to prevent memory leaks
-    if (this.uploadedImage) {
-      URL.revokeObjectURL(this.uploadedImage);
-    }
-    
-    // Remove debug reference
-    if (window && window._homeworkComponent === this) {
-      delete window._homeworkComponent;
-    }
+    return {
+      // State
+      currentStep,
+      showWorkflow,
+      subjects,
+      selectedSubject,
+      topics,
+      filteredTopics,
+      selectedTopic,
+      conversationSessionId,
+      isTeacherConnected,
+      messages,
+      newMessage,
+      attachedFile,
+      attachmentPreview,
+      fileInput,
+      messageInput,
+      messagesContainer,
+      isMessageSending,
+      isImageAttachment,
+      
+      // Methods
+      selectSubject,
+      selectTopic,
+      goToStep,
+      toggleWorkflow,
+      refreshSession,
+      sendMessage,
+      attachFile,
+      handleFileSelected,
+      removeAttachment,
+      formatTime,
+      formatMessage,
+      adjustTextareaHeight,
+      provideMessageFeedback,
+      
+      // Constants
+      stepLabels: ['Subject', 'Topic', 'Conversation']
+    };
   }
 }
 </script>
-
 <style scoped>
 .homework-submit {
   padding: 20px;
 }
 
 .page-title {
-  margin-bottom: 24px;
-  color: #4299e1;
+  margin-bottom: 20px;
+  color: var(--primary-color);
 }
 
 .step-container {
   background-color: white;
   border-radius: 8px;
-  padding: 24px;
+  padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.input-container {
-  margin: 24px 0;
+.full-height {
+  height: calc(80vh - 150px);
+  display: flex;
+  flex-direction: column;
 }
 
-.homework-input {
-  margin-bottom: 16px;
-}
-
-.homework-input label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: bold;
-}
-
-textarea {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-family: inherit;
-  resize: vertical;
-}
-
-.file-upload {
-  margin-top: 16px;
-}
-
-.btn {
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-outline {
-  border: 1px solid #4299e1;
-  color: #4299e1;
-  background: transparent;
-}
-
-.btn-outline:hover {
-  background-color: rgba(66, 153, 225, 0.1);
-}
-
-.btn-primary {
-  background-color: #4299e1;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #3182ce;
-}
-
-.btn-secondary {
-  background-color: #e2e8f0;
-  color: #4a5568;
-}
-
-.btn-secondary:hover {
-  background-color: #cbd5e0;
-}
-
-.btn-danger {
-  background-color: #e53e3e;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #c53030;
-}
-
-.btn-sm {
-  padding: 4px 8px;
-  font-size: 0.875rem;
-}
-
-.btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.image-preview {
-  margin-top: 16px;
-  text-align: center;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 300px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 8px;
-}
-
-.submit-controls {
+.navigation-buttons {
   display: flex;
   justify-content: space-between;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
-/* Debug panel */
-.debug-panel {
-  margin-bottom: 16px;
-  padding: 12px;
-  background-color: #fffde7;
-  border: 1px solid #fff59d;
-  border-radius: 4px;
+.subjects-grid, .topics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  margin: 20px 0;
 }
 
-.debug-panel h3 {
-  margin-top: 0;
-  margin-bottom: 8px;
-  color: #f57f17;
+.subject-card, .topic-card {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
 }
 
-.debug-panel p {
-  margin: 4px 0;
-  font-family: monospace;
+.subject-card:hover, .topic-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 
-.debug-actions {
+.subject-card.selected, .topic-card.selected {
+  border-color: var(--primary-color);
+  background-color: rgba(var(--primary-color-rgb), 0.1);
+}
+
+.subject-card i {
+  font-size: 32px;
+  margin-bottom: 12px;
+  color: var(--primary-color);
+}
+
+.topic-footer {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 14px;
+  color: #666;
 }
 
-/* Conversation styles */
-.conversation-area {
-  margin-top: 32px;
+.conversation-container {
+  flex: 1;
+  margin: 20px 0;
+  min-height: 500px;
   border: 1px solid #ddd;
   border-radius: 8px;
   overflow: hidden;
-}
-
-.messages-container {
-  height: 300px;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background-color: #f9f9f9;
-}
-
-.empty-messages {
-  text-align: center;
-  color: #666;
-  margin: auto 0;
-  font-style: italic;
-}
-
-.message {
-  max-width: 80%;
-  padding: 12px;
-  border-radius: 8px;
-}
-
-.message.user {
-  align-self: flex-end;
-  background-color: #e9f5fe;
-  border-bottom-right-radius: 4px;
-}
-
-.message.teacher {
-  align-self: flex-start;
-  background-color: #f0f0f0;
-  border-bottom-left-radius: 4px;
-}
-
-.message.system {
-  align-self: center;
-  background-color: #fff3cd;
-  color: #856404;
-  font-style: italic;
-}
-
-.typing-indicator {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 8px;
-}
-
-.dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin: 0 2px;
-  background-color: #888;
-  border-radius: 50%;
-  opacity: 0.6;
-  animation: dot-pulse 1.5s infinite ease-in-out;
-}
-
-.dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes dot-pulse {
-  0%, 60%, 100% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  30% {
-    transform: scale(1.5);
-    opacity: 1;
-  }
-}
-
-.input-reply {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  background-color: white;
-  border-top: 1px solid #ddd;
-}
-
-.input-reply textarea {
-  flex: 1;
-  max-height: 100px;
-  min-height: 40px;
-}
-
-.input-reply button {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #4299e1;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  cursor: pointer;
-}
-
-.input-reply button:hover {
-  background-color: #3182ce;
-}
-
-.input-reply button:disabled {
-  background-color: #cbd5e0;
-  cursor: not-allowed;
 }
 </style>

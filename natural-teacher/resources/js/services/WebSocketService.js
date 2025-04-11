@@ -15,7 +15,8 @@ class WebSocketService {
 
     // Determine the WebSocket URL based on the current environment
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
+    // const host = window.location.host;
+    const host = `${window.location.hostname}:5000`; 
     const wsUrl = `${protocol}//${host}/ws/${sessionId}`;
 
     // Create a new WebSocket connection
