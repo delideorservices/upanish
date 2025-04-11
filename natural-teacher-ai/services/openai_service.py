@@ -5,7 +5,8 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 import json
 import logging
-
+import asyncio
+from typing import AsyncGenerator
 logger = logging.getLogger(__name__)
 
 class OpenAIService:
@@ -21,7 +22,31 @@ class OpenAIService:
             model="gpt-4o-mini",
             temperature=0.7
         )
-    
+    async def get_completion_streaming(self, prompt) -> AsyncGenerator[str, None]:
+        """Get completion from OpenAI API with streaming output"""
+        try:
+            # Set up streaming parameters
+            kwargs = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+                "max_tokens": 2000,
+                "stream": True  # Enable streaming
+            }
+            
+            # Call the OpenAI API with streaming
+            response = await self.client.chat.completions.create(**kwargs)
+            
+            async for chunk in response:
+                # Extract and yield the content from each chunk
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+                    
+        except Exception as e:
+            # Log the error but continue with a fallback message
+            self.logger.error(f"Error getting streaming completion: {e}")
+            yield "I apologize, but I encountered an issue while generating a response. "
+            yield "Let me try to help you in a different way."
     def get_llm(self):
         """Return the LangChain ChatOpenAI instance for CrewAI"""
         return self.chat_model

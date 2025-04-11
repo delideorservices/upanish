@@ -1,653 +1,959 @@
 <template>
-    <student-layout>
-      <div class="homework-submit">
-        <h1 class="page-title">Submit Your Homework</h1>
-        
-        <div class="subject-selection" v-if="step === 1">
-          <h2>What subject are you working on?</h2>
-          
-          <div class="subjects-grid">
-            <div 
-              v-for="subject in subjects" 
-              :key="subject.id"
-              class="subject-card"
-              :class="{ 'selected': selectedSubject?.id === subject.id }"
-              @click="selectSubject(subject)"
-            >
-              <div class="subject-icon">
-                <i :class="fa-camera"></i>
-              </div>
-              <h3>{{ subject.name }}</h3>
-              <p>{{ subject.description }}</p>
-            </div>
-          </div>
-          
-          <div class="navigation-buttons">
-            <button 
-              class="btn btn-primary" 
-              :disabled="!selectedSubject" 
-              @click="goToStep(2)"
-            >
-              Next <i class="fas fa-arrow-right"></i>
-            </button>
-          </div>
-        </div>
-        
-        <div class="topic-selection" v-if="step === 2">
-          <h2>Select a topic</h2>
-          
-          <div class="topics-grid">
-            <div 
-              v-for="topic in filteredTopics" 
-              :key="topic.id"
-              class="topic-card"
-              :class="{ 'selected': selectedTopic?.id === topic.id }"
-              @click="selectTopic(topic)"
-            >
-              <h3>{{ topic.name }}</h3>
-              <p>{{ topic.description }}</p>
-              <div class="topic-footer">
-                <div class="difficulty">
-                  <span>Difficulty:</span>
-                  <div class="stars">
-                    <i 
-                      v-for="n in 5" 
-                      :key="n"
-                      class="fas fa-star"
-                      :class="{ 'filled': n <= topic.difficulty_level }"
-                    ></i>
-                  </div>
-                </div>
-                <div class="points">
-                  <i class="fas fa-star"></i>
-                  {{ topic.points_available }} points
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="navigation-buttons">
-            <button class="btn btn-secondary" @click="goToStep(1)">
-              <i class="fas fa-arrow-left"></i> Back
-            </button>
-            
-            <button 
-            class="btn btn-primary" 
-            :disabled="!selectedTopic" 
-            @click="goToStep(3)"
-          >
-            Next <i class="fas fa-arrow-right"></i>
-          </button>
-        </div>
-      </div>
+  <student-layout>
+    <div class="homework-submit">
+      <h1 class="page-title">Submit Your Homework</h1>
       
-      <div class="homework-input" v-if="step === 3">
-        <h2>Enter your homework question</h2>
+      <div class="step-container" v-if="currentStep === 3">
+        <h2>Step 3</h2>
+        <p>Enter your homework question:</p>
         
-        <div class="input-methods">
-          <div class="input-method" :class="{ 'active': inputMethod === 'text' }" @click="inputMethod = 'text'">
-            <i class="fas fa-keyboard"></i>
-            <span>Type Question</span>
-          </div>
-          
-          <div class="input-method" :class="{ 'active': inputMethod === 'photo' }" @click="inputMethod = 'photo'">
-            <i class="fas fa-camera"></i>
-            <span>Upload Photo</span>
+        <!-- Debug panel - only shown in debug mode -->
+        <div v-if="debugMode" class="debug-panel">
+          <h3>Connection Status</h3>
+          <p>WebSocket: {{ wsStatus }}</p>
+          <p>Attempts: {{ connectionAttempts }}/{{ maxConnectionAttempts }}</p>
+          <div class="debug-actions">
+            <button @click="testConnection" class="btn btn-secondary btn-sm">
+              Test Connection
+            </button>
+            <button @click="toggleDebugMode" class="btn btn-secondary btn-sm">
+              Hide Debug
+            </button>
           </div>
         </div>
         
         <div class="input-container">
-          <div v-if="inputMethod === 'text'">
+          <!-- Homework text input -->
+          <div class="homework-input">
             <label for="homework-text">Type your homework question:</label>
-            <textarea 
-              id="homework-text" 
-              v-model="homeworkContent" 
-              rows="5" 
+            <textarea
+              id="homework-text"
+              v-model="homeworkContent"
               placeholder="Enter your homework question or problem here..."
+              rows="6"
             ></textarea>
           </div>
           
-          <div v-else-if="inputMethod === 'photo'" class="photo-upload">
-            <label for="homework-photo">
-              <div class="upload-area" :class="{ 'has-file': homeworkFile }">
-                <div v-if="!homeworkFile">
-                  <i class="fas fa-cloud-upload-alt"></i>
-                  <p>Drag & drop your homework photo or click to browse</p>
-                </div>
-                <div v-else class="file-preview">
-                  <img :src="filePreview" alt="Homework preview" />
-                </div>
-              </div>
-            </label>
+          <!-- File upload option -->
+          <div class="file-upload">
+            <button @click="triggerFileInput" class="btn btn-outline" :disabled="isSubmitting">
+              <i class="fas fa-upload"></i> Upload Image
+            </button>
+            
             <input 
               type="file" 
-              id="homework-photo" 
-              ref="fileInput"
-              accept="image/*" 
+              ref="fileInput" 
               @change="handleFileUpload" 
-              style="display: none;"
-            />
+              accept="image/*"
+              style="display: none"
+            >
             
-            <button v-if="homeworkFile" class="btn btn-outline" @click="clearFile">
-              <i class="fas fa-times"></i> Remove Photo
-            </button>
+            <div v-if="uploadedImage" class="image-preview">
+              <img :src="uploadedImage" alt="Homework preview" class="preview-image">
+              <button @click="removeImage" class="btn btn-sm btn-danger">
+                <i class="fas fa-times"></i> Remove
+              </button>
+            </div>
           </div>
         </div>
         
-        <div class="navigation-buttons">
-          <button class="btn btn-secondary" @click="goToStep(2)">
+        <!-- Submit button -->
+        <div class="submit-controls">
+          <button 
+            class="btn btn-secondary" 
+            @click="goToPreviousStep"
+            :disabled="isSubmitting"
+          >
             <i class="fas fa-arrow-left"></i> Back
           </button>
           
           <button 
             class="btn btn-primary" 
-            :disabled="!isValidHomework" 
             @click="submitHomework"
-            :class="{ 'loading': submitting }"
+            :disabled="isSubmitting || (!homeworkContent && !uploadedImage)"
           >
-            <span v-if="!submitting">Submit Homework</span>
+            <span v-if="isSubmitting">
+              <i class="fas fa-spinner fa-spin"></i> Submitting...
+            </span>
             <span v-else>
-              <i class="fas fa-spinner fa-spin"></i> Processing...
+              <i class="fas fa-paper-plane"></i> Submit Homework
             </span>
           </button>
         </div>
-      </div>
-      
-      <div class="homework-result" v-if="step === 4">
-        <div class="result-header">
-          <h2>Your Homework Help</h2>
-          <div class="points-earned">
-            <i class="fas fa-star animate__animated animate__tada"></i>
-            <span>+{{ pointsEarned }} points earned!</span>
-          </div>
-        </div>
-
-        <div class="result-card">
-          <div class="question-section">
-            <h3>Your Question:</h3>
-            <div class="question-content">
-              <p v-if="homeworkContent">{{ homeworkContent }}</p>
-              <img v-else-if="filePreview" :src="filePreview" alt="Homework question" />
+        
+        <!-- Conversation area (will show after submission) -->
+        <div v-if="showConversation" class="conversation-area">
+          <div class="messages-container" ref="messagesContainer">
+            <div v-if="messages.length === 0" class="empty-messages">
+              <p>Your conversation will appear here...</p>
             </div>
-          </div>
-
-          <div class="answer-section">
-            <h3>Solution:</h3>
-            <transition name="fade">
-              <div class="chat-box">
-                <div 
-                  v-for="(msg, index) in homeworkResponse.messages" 
-                  :key="index"
-                  :class="['message', msg.sender === 'student' ? 'student' : 'agent']"
-                >
-                  <span class="label">{{ msg.sender === 'student' ? 'You' : 'Teacher' }}</span>
-                  <div class="bubble">{{ msg.message }}</div>
+            
+            <div 
+              v-for="(message, index) in messages" 
+              :key="index" 
+              class="message" 
+              :class="message.sender"
+            >
+              <div class="message-content">
+                <div v-if="message.isComplete" v-html="formatMessageContent(message.content)"></div>
+                <div v-else>
+                  <span v-html="formatMessageContent(message.content)"></span>
+                  <span class="typing-indicator">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                  </span>
                 </div>
               </div>
-
-            </transition>
-          </div>
-
-          <div class="feedback-section">
-            <h3>Was this helpful?</h3>
-            <div class="feedback-buttons">
-              <button class="btn btn-outline" @click="provideFeedback('very_helpful')">
-                <i class="far fa-grin-stars"></i> Very Helpful
-              </button>
-              <button class="btn btn-outline" @click="provideFeedback('somewhat_helpful')">
-                <i class="far fa-smile"></i> Somewhat
-              </button>
-              <button class="btn btn-outline" @click="provideFeedback('not_helpful')">
-                <i class="far fa-frown"></i> Not Helpful
-              </button>
             </div>
           </div>
-        </div>
-
-        <div class="navigation-buttons">
-          <button class="btn btn-primary" @click="startNew">
-            <i class="fas fa-plus"></i> New Homework Question
-          </button>
+          
+          <div class="input-reply" v-if="messages.length > 0">
+            <textarea 
+              v-model="replyMessage" 
+              placeholder="Ask a follow-up question..." 
+              @keydown.enter.prevent="sendReply"
+              :disabled="isReplying"
+            ></textarea>
+            <button 
+              @click="sendReply" 
+              :disabled="isReplying || !replyMessage.trim()"
+            >
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </student-layout>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import axios from 'axios';
-import MarkdownIt from 'markdown-it';
-import { useGamificationStore } from '../../stores/gamification';
-
-const gamification = useGamificationStore();
-const md = new MarkdownIt({ html: true, breaks: true, linkify: true });
-
-const step = ref(1);
-const subjects = ref([]);
-const topics = ref([]);
-const selectedSubject = ref(null);
-const selectedTopic = ref(null);
-const inputMethod = ref('text');
-const homeworkContent = ref('');
-const homeworkFile = ref(null);
-const filePreview = ref(null);
-const submitting = ref(false);
-const homeworkResponse = ref({});
-const pointsEarned = ref(0);
-
-const renderedMarkdown = computed(() => md.render(homeworkResponse.value.content || ''));
-const typedMarkdown = ref('');
-const sessionId = ref(null);
-const studentAge = ref(null);
-const studentLevel = ref(null);
-const learningStyle = ref(null);
-
-
-
-
-watch(renderedMarkdown, async (newVal) => {
-  typedMarkdown.value = '';
-  for (let i = 0; i < newVal.length; i++) {
-    typedMarkdown.value += newVal[i];
-    await new Promise(resolve => setTimeout(resolve, 1));
-  }
-});
-
-onMounted(async () => {
-  try {
-    const [subjectsResponse, topicsResponse] = await Promise.all([
-      axios.get('/api/subjects'),
-      axios.get('/api/topics')
-    ]);
-    subjects.value = subjectsResponse.data;
-    topics.value = topicsResponse.data;
-  } catch (error) {
-    console.error('Failed to load subjects and topics:', error);
-  }
-});
-
-const filteredTopics = computed(() => {
-  if (!selectedSubject.value) return [];
-  return topics.value.filter(topic => topic.subject_id === selectedSubject.value.id && topic.is_active);
-});
-
-const isValidHomework = computed(() => {
-  return inputMethod.value === 'text' ? homeworkContent.value.trim().length > 0 : homeworkFile.value !== null;
-});
-
-const selectSubject = (subject) => selectedSubject.value = subject;
-const selectTopic = (topic) => selectedTopic.value = topic;
-const goToStep = (newStep) => step.value = newStep;
-
-const fileInputRef = ref(null);
-const handleFileUpload = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  homeworkFile.value = file;
-  const reader = new FileReader();
-  reader.onload = (e) => filePreview.value = e.target.result;
-  reader.readAsDataURL(file);
-};
-const clearFile = () => {
-  homeworkFile.value = null;
-  filePreview.value = null;
-  if (fileInputRef.value) fileInputRef.value.value = null;
-};
-
-// const submitHomework = async () => {
-//   submitting.value = true;
-//   try {
-//     const formData = new FormData();
-//     formData.append('subject_id', selectedSubject.value.id);
-//     formData.append('topic_id', selectedTopic.value.id);
-//     formData.append('input_type', inputMethod.value);
-//     if (inputMethod.value === 'text') {
-//       formData.append('content', homeworkContent.value);
-//     } else {
-//       formData.append('file', homeworkFile.value);
-//     }
-//     const response = await axios.post('/api/homework/submit', formData, {
-//       headers: { 'Content-Type': 'multipart/form-data' }
-//     });
-//     // homeworkResponse.value = response.data.response;
-//     homeworkResponse.value = {
-//       id: response.data.response.id,
-//       content: response.data.response.content || response.data.response.raw || 'No answer found.'
-//     };
-
-//     pointsEarned.value = response.data.points_earned || selectedTopic.value.points_available;
-//     gamification.addPoints(pointsEarned.value);
-//     await gamification.checkForNewAchievements();
-//     step.value = 4;
-//   } catch (error) {
-//     console.error('Failed to submit homework:', error);
-//     alert('Sorry, there was a problem submitting your homework. Please try again.');
-//   } finally {
-//     submitting.value = false;
-//   }
-// };
-const submitHomework = async () => {
-  submitting.value = true;
-  try {
-    // 1. Create session by calling /submit
-    const formData = new FormData();
-    formData.append('subject_id', selectedSubject.value.id);
-    formData.append('topic_id', selectedTopic.value.id);
-    formData.append('input_type', 'text');
-    formData.append('content', homeworkContent.value);
-
-    const sessionResponse = await axios.post('/api/homework/submit', formData);
-
-    sessionId.value = sessionResponse.data.session_id;
-    studentAge.value = sessionResponse.data.student_age;
-    studentLevel.value = sessionResponse.data.student_level;
-    learningStyle.value = sessionResponse.data.learning_style;
-
-    // 2. Now call real-time conversation
-    const realTimeResponse = await axios.post('/api/homework/real-time-conversation', {
-      message: homeworkContent.value,
-      subject_id: selectedSubject.value.id,
-      session_id: sessionId.value,
-      student_age: studentAge.value,
-      student_level: studentLevel.value,
-      learning_style: learningStyle.value,
-    });
-
-    const data = realTimeResponse.data.response;
-    homeworkResponse.value = {
-      id: data.id || null,
-      messages: [
-        { sender: 'student', message: homeworkContent.value },
-        { sender: 'agent', message: data.content || 'No answer found.' },
-      ]
+<script>
+export default {
+  name: 'HomeworkSubmitView',
+  components: {
+    StudentLayout: () => import('../../layouts/StudentLayout.vue')
+  },
+  data() {
+    return {
+      currentStep: 3,
+      homeworkContent: '',
+      uploadedImage: null,
+      isSubmitting: false,
+      showConversation: false,
+      messages: [],
+      replyMessage: '',
+      isReplying: false,
+      websocket: null,
+      sessionId: `homework-${Date.now()}`,
+      connectionAttempts: 0,
+      maxConnectionAttempts: 5,
+      wsStatus: 'Not connected',
+      debugMode: true, // Set to false in production
+      apiBaseUrl: 'http://127.0.0.1:5000', // Backend API URL
+      file: null // Store the actual file object
     };
-
-    pointsEarned.value = sessionResponse.data.points_earned || selectedTopic.value.points_available;
-    step.value = 4;
-
-  } catch (error) {
-    console.error('❌ Failed to submit real-time homework:', error);
-    alert('Oops! Something went wrong. Try again.');
-  } finally {
-    submitting.value = false;
+  },
+  methods: {
+    toggleDebugMode() {
+      this.debugMode = !this.debugMode;
+    },
+    
+    goToPreviousStep() {
+      this.currentStep = 2; // Assuming previous step is 2
+    },
+    
+    triggerFileInput() {
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.click();
+      }
+    },
+    
+    handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      this.file = file; // Store the file object
+      
+      // Create a preview URL for the uploaded image
+      this.uploadedImage = URL.createObjectURL(file);
+    },
+    
+    removeImage() {
+      this.uploadedImage = null;
+      this.file = null;
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.value = '';
+      }
+    },
+    
+    formatMessageContent(content) {
+      if (!content) return '';
+      
+      // Convert to string and escape HTML
+      const escaped = String(content)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+      
+      // Convert URLs to links
+      const withLinks = escaped.replace(
+        /(https?:\/\/[^\s]+)/g, 
+        '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+      );
+      
+      // Convert newlines to <br> tags
+      return withLinks.replace(/\n/g, '<br>');
+    },
+    
+    testConnection() {
+      this.wsStatus = 'Testing connection...';
+      
+      // Test API connection first
+      fetch(`${this.apiBaseUrl}/health`)
+        .then(response => {
+          if (response.ok) {
+            return response.json();
+          }
+          throw new Error(`API returned ${response.status}`);
+        })
+        .then(data => {
+          this.wsStatus = `API available: ${JSON.stringify(data)}. Testing WebSocket...`;
+          // Now test WebSocket
+          this.connectWebSocket(true);
+        })
+        .catch(error => {
+          this.wsStatus = `API error: ${error.message}`;
+          console.error('API connection test failed:', error);
+        });
+    },
+    
+    connectWebSocket(isTest = false) {
+      // Create a WebSocket connection to the backend
+      const wsUrl = `ws://${this.apiBaseUrl.replace(/^https?:\/\//, '')}/ws/${this.sessionId}`;
+      
+      console.log(`Attempting to connect to WebSocket: ${wsUrl}`);
+      this.wsStatus = 'Connecting...';
+      
+      // Close existing connection if any
+      if (this.websocket) {
+        this.websocket.close();
+      }
+      
+      try {
+        this.websocket = new WebSocket(wsUrl);
+        
+        this.websocket.onopen = (event) => {
+          console.log('WebSocket connection established', event);
+          this.wsStatus = 'Connected';
+          this.connectionAttempts = 0;
+          
+          if (isTest) {
+            // Send a test message
+            this.websocket.send(JSON.stringify({ 
+              action: 'test', 
+              content: 'Testing connection'
+            }));
+          }
+        };
+        
+        this.websocket.onmessage = (event) => {
+          console.log('WebSocket message received:', event.data);
+          
+          if (isTest) {
+            this.wsStatus = 'Test message received: ' + 
+              (event.data.length > 30 ? 
+                event.data.substring(0, 30) + '...' : 
+                event.data);
+            return;
+          }
+          
+          try {
+            // Try to parse as JSON for control messages
+            const data = JSON.parse(event.data);
+            
+            if (data.action === 'start_response') {
+              // Add a new teacher message that will be streamed
+              this.messages.push({
+                sender: 'teacher',
+                content: '',
+                timestamp: new Date(),
+                isComplete: false
+              });
+              
+              // Scroll to bottom
+              this.scrollToBottom();
+            } 
+            else if (data.action === 'end_response') {
+              // Mark the last message as complete
+              const lastIndex = this.messages.findIndex(m => 
+                m.sender === 'teacher' && !m.isComplete
+              );
+              
+              if (lastIndex !== -1) {
+                // Create a new array with the updated message to ensure reactivity
+                const updatedMessages = [...this.messages];
+                updatedMessages[lastIndex] = {
+                  ...updatedMessages[lastIndex],
+                  isComplete: true
+                };
+                this.messages = updatedMessages;
+              }
+            }
+          } catch (e) {
+            // Not JSON, treat as a text chunk for the current response
+            const lastIndex = this.messages.findIndex(m => 
+              m.sender === 'teacher' && !m.isComplete
+            );
+            
+            if (lastIndex !== -1) {
+              // Create a new array with the updated message to ensure reactivity
+              const updatedMessages = [...this.messages];
+              updatedMessages[lastIndex] = {
+                ...updatedMessages[lastIndex],
+                content: updatedMessages[lastIndex].content + event.data
+              };
+              this.messages = updatedMessages;
+              
+              // Scroll to bottom as content arrives
+              this.scrollToBottom();
+            } else {
+              // If no incomplete message exists, create a new one
+              this.messages.push({
+                sender: 'teacher',
+                content: event.data,
+                timestamp: new Date(),
+                isComplete: false
+              });
+              
+              // Scroll to bottom
+              this.scrollToBottom();
+            }
+          }
+        };
+        
+        this.websocket.onclose = (event) => {
+          console.log('WebSocket connection closed', event);
+          this.wsStatus = `Disconnected (code: ${event.code})`;
+          
+          // Attempt to reconnect if this wasn't a normal closure and not a test
+          if (!isTest && event.code !== 1000 && 
+              this.connectionAttempts < this.maxConnectionAttempts) {
+            this.connectionAttempts++;
+            const reconnectDelay = 1000 * this.connectionAttempts;
+            
+            console.log(`Attempting to reconnect (${this.connectionAttempts}/${this.maxConnectionAttempts}) in ${reconnectDelay}ms...`);
+            this.wsStatus = `Reconnecting (${this.connectionAttempts}/${this.maxConnectionAttempts}) in ${reconnectDelay}ms...`;
+            
+            setTimeout(() => {
+              this.connectWebSocket();
+            }, reconnectDelay);
+          }
+        };
+        
+        this.websocket.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          this.wsStatus = 'Error connecting';
+        };
+      } catch (error) {
+        console.error('Error creating WebSocket:', error);
+        this.wsStatus = 'Failed to create WebSocket: ' + error.message;
+      }
+    },
+    
+    scrollToBottom() {
+      this.$nextTick(() => {
+        if (this.$refs.messagesContainer) {
+          this.$refs.messagesContainer.scrollTop = 
+            this.$refs.messagesContainer.scrollHeight;
+        }
+      });
+    },
+    
+    async submitHomework() {
+      if ((!this.homeworkContent && !this.uploadedImage) || this.isSubmitting) {
+        return;
+      }
+      
+      this.isSubmitting = true;
+      
+      try {
+        // Try WebSocket first if debug mode is on
+        if (this.debugMode) {
+          this.connectWebSocket();
+          
+          // Wait for connection or timeout
+          let connectionTimeoutMs = 3000; // 3 seconds timeout
+          const startTime = Date.now();
+          
+          // Keep checking connection status until connected or timeout
+          while (
+            (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) && 
+            (Date.now() - startTime < connectionTimeoutMs)
+          ) {
+            // Wait a bit before checking again
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          
+          // If connected, submit via WebSocket
+          if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+            await this.submitViaWebSocket();
+          } else {
+            // Fallback to HTTP
+            console.log('WebSocket connection failed, falling back to HTTP');
+            await this.submitViaHTTP();
+          }
+        } else {
+          // In production, just use HTTP
+          await this.submitViaHTTP();
+        }
+        
+        // Show conversation area regardless of submission method
+        this.showConversation = true;
+        
+        // Scroll to bottom
+        this.scrollToBottom();
+      } catch (error) {
+        console.error('Error submitting homework:', error);
+        alert('There was an error submitting your homework. Please try again.');
+      } finally {
+        this.isSubmitting = false;
+      }
+    },
+    
+    async submitViaWebSocket() {
+      return new Promise((resolve, reject) => {
+        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+          reject(new Error('WebSocket not connected'));
+          return;
+        }
+        
+        // Add user message to conversation
+        this.messages.push({
+          sender: 'user',
+          content: this.homeworkContent || 'I need help with this homework.',
+          timestamp: new Date(),
+          isComplete: true
+        });
+        
+        // Prepare message payload
+        const payload = {
+          action: 'ask',
+          content: this.homeworkContent || 'I need help with this homework.',
+          session_id: this.sessionId,
+          student_age: 10, // Default values
+          student_level: 3,
+          learning_style: 'visual'
+        };
+        
+        // If there's an image, we need to convert it to base64
+        if (this.file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              // Get base64 data
+              const base64Data = e.target.result.split(',')[1];
+              
+              // Add to payload
+              payload.attachment = {
+                filename: this.file.name,
+                mime_type: this.file.type,
+                data: base64Data
+              };
+              
+              // Send the payload
+              this.websocket.send(JSON.stringify(payload));
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          };
+          
+          reader.onerror = (error) => {
+            reject(error);
+          };
+          
+          reader.readAsDataURL(this.file);
+        } else {
+          // No file, just send the payload
+          try {
+            this.websocket.send(JSON.stringify(payload));
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        }
+      });
+    },
+    
+    async submitViaHTTP() {
+      // Fallback to HTTP API if WebSocket is unavailable
+      const apiUrl = `${this.apiBaseUrl}/real-time-conversation`;
+      
+      // Prepare form data for file upload
+      const formData = new FormData();
+      formData.append('content', this.homeworkContent || 'I need help with this homework.');
+      formData.append('session_id', this.sessionId);
+      formData.append('student_age', 10); // Default values
+      formData.append('student_level', 3);
+      formData.append('learning_style', 'visual');
+      
+      if (this.file) {
+        formData.append('file', this.file);
+      }
+      
+      // Add user message to conversation
+      this.messages.push({
+        sender: 'user',
+        content: this.homeworkContent || 'I need help with this homework.',
+        timestamp: new Date(),
+        isComplete: true
+      });
+      
+      try {
+        // Send the HTTP request
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Add teacher response
+        this.messages.push({
+          sender: 'teacher',
+          content: data.reply,
+          timestamp: new Date(),
+          isComplete: true
+        });
+        
+        return data;
+      } catch (error) {
+        console.error('Error submitting homework via HTTP:', error);
+        
+        // Add error message to the conversation
+        this.messages.push({
+          sender: 'system',
+          content: 'Sorry, there was an error processing your request. Please try again.',
+          timestamp: new Date(),
+          isComplete: true
+        });
+        
+        throw error;
+      }
+    },
+    
+    async sendReply() {
+      if (!this.replyMessage.trim() || this.isReplying) return;
+      
+      this.isReplying = true;
+      
+      try {
+        // Add user reply to messages
+        this.messages.push({
+          sender: 'user',
+          content: this.replyMessage,
+          timestamp: new Date(),
+          isComplete: true
+        });
+        
+        // Store the message and clear input
+        const message = this.replyMessage;
+        this.replyMessage = '';
+        
+        // Scroll to bottom
+        this.scrollToBottom();
+        
+        // Try WebSocket first if it's connected
+        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+          try {
+            this.websocket.send(JSON.stringify({
+              action: 'ask',
+              content: message,
+              session_id: this.sessionId,
+              student_age: 10,
+              student_level: 3,
+              learning_style: 'visual'
+            }));
+          } catch (error) {
+            console.error('Error sending via WebSocket:', error);
+            // Fall back to HTTP
+            await this.sendReplyViaHTTP(message);
+          }
+        } else {
+          // Use HTTP as fallback
+          await this.sendReplyViaHTTP(message);
+        }
+      } catch (error) {
+        console.error('Error sending reply:', error);
+        
+        // Add error message
+        this.messages.push({
+          sender: 'system',
+          content: 'Sorry, there was an error sending your message. Please try again.',
+          timestamp: new Date(),
+          isComplete: true
+        });
+        
+        // Scroll to bottom
+        this.scrollToBottom();
+      } finally {
+        this.isReplying = false;
+      }
+    },
+    
+    async sendReplyViaHTTP(message) {
+      const apiUrl = `${this.apiBaseUrl}/real-time-conversation`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: message,
+          session_id: this.sessionId,
+          student_age: 10,
+          student_level: 3,
+          learning_style: 'visual'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Add teacher response
+      this.messages.push({
+        sender: 'teacher',
+        content: data.reply,
+        timestamp: new Date(),
+        isComplete: true
+      });
+      
+      // Scroll to bottom
+      this.scrollToBottom();
+      
+      return data;
+    }
+  },
+  mounted() {
+    // For debugging
+    if (this.debugMode) {
+      console.log('HomeworkSubmitView mounted');
+      // Make component accessible in console for debugging
+      if (window) window._homeworkComponent = this;
+    }
+    
+    // Extract API base URL from current location
+    const currentHost = window.location.hostname;
+    const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    
+    // Update API URL based on environment
+    if (currentHost === '127.0.0.1' || currentHost === 'localhost') {
+      // Development - use port 5000
+      this.apiBaseUrl = `http://${currentHost}:5000`;
+    } else {
+      // Production - use same host but different port if needed
+      this.apiBaseUrl = `${window.location.protocol}//${currentHost}:5000`;
+    }
+    
+    console.log(`API base URL: ${this.apiBaseUrl}`);
+  },
+  beforeDestroy() {
+    // Close WebSocket connection when component is destroyed
+    if (this.websocket) {
+      this.websocket.close();
+    }
+    
+    // Clean up any object URLs to prevent memory leaks
+    if (this.uploadedImage) {
+      URL.revokeObjectURL(this.uploadedImage);
+    }
+    
+    // Remove debug reference
+    if (window && window._homeworkComponent === this) {
+      delete window._homeworkComponent;
+    }
   }
-};
-
-
-const provideFeedback = async (feedbackType) => {
-  try {
-    await axios.post('/api/homework/feedback', {
-      response_id: homeworkResponse.value.id,
-      feedback_type: feedbackType
-    });
-    alert('Thank you for your feedback!');
-  } catch (error) {
-    console.error('Failed to submit feedback:', error);
-  }
-};
-
-const startNew = () => {
-  selectedSubject.value = null;
-  selectedTopic.value = null;
-  inputMethod.value = 'text';
-  homeworkContent.value = '';
-  homeworkFile.value = null;
-  filePreview.value = null;
-  homeworkResponse.value = {};
-  step.value = 1;
-};
+}
 </script>
-
 
 <style scoped>
 .homework-submit {
-  max-width: 900px;
-  margin: 0 auto;
+  padding: 20px;
 }
 
 .page-title {
-  font-size: 2rem;
-  color: var(--primary-color);
-  margin-bottom: 2rem;
-  text-align: center;
+  margin-bottom: 24px;
+  color: #4299e1;
 }
 
-.subjects-grid, .topics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin: 2rem 0;
-}
-
-.subject-card, .topic-card {
+.step-container {
   background-color: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  padding: 1.5rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-}
-
-.subject-card:hover, .topic-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-}
-
-.subject-card.selected, .topic-card.selected {
-  border-color: var(--primary-color);
-  background-color: rgba(var(--primary-color-rgb), 0.05);
-}
-
-.subject-icon {
-  font-size: 2.5rem;
-  color: var(--primary-color);
-  margin-bottom: 1rem;
-  text-align: center;
-}
-
-.navigation-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 2rem;
-}
-
-.input-methods {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.input-method {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1rem;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  flex: 1;
-  background-color: #f5f5f5;
-  transition: all 0.3s ease;
-}
-
-.input-method i {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.input-method.active {
-  background-color: var(--primary-color);
-  color: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .input-container {
-  margin-bottom: 2rem;
+  margin: 24px 0;
+}
+
+.homework-input {
+  margin-bottom: 16px;
+}
+
+.homework-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
 }
 
 textarea {
   width: 100%;
-  padding: 1rem;
+  padding: 12px;
   border: 1px solid #ddd;
-  border-radius: var(--border-radius);
-  font-family: var(--font-family);
+  border-radius: 8px;
+  font-family: inherit;
   resize: vertical;
 }
 
-.photo-upload {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.file-upload {
+  margin-top: 16px;
 }
 
-.upload-area {
-  width: 100%;
-  height: 200px;
-  border: 2px dashed #ddd;
-  border-radius: var(--border-radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  margin-bottom: 1rem;
-  transition: all 0.3s ease;
-}
-
-.upload-area:hover {
-  border-color: var(--primary-color);
-}
-
-.upload-area i {
-  font-size: 3rem;
-  color: #aaa;
-  margin-bottom: 1rem;
-}
-
-.file-preview {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.file-preview img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.result-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.points-earned {
-  background-color: var(--accent-color);
-  color: #333;
-  padding: 0.5rem 1rem;
-  border-radius: 2rem;
+.btn {
+  padding: 8px 16px;
+  border-radius: 4px;
   font-weight: bold;
-  display: flex;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.result-card {
-  background-color: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  padding: 2rem;
-  margin-bottom: 2rem;
-}
-
-.question-section, .answer-section {
-  margin-bottom: 2rem;
-}
-
-.question-content, .answer-content {
-  padding: 1rem;
-  background-color: #f9f9f9;
-  border-radius: var(--border-radius);
-}
-
-.feedback-buttons {
-  display: flex;
-  gap: 1rem;
-}
-
-.stars {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.stars i {
-  color: #ddd;
-}
-
-.stars i.filled {
-  color: var(--accent-color);
-}
-
-.topic-footer {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 1rem;
+  gap: 8px;
 }
 
 .btn-outline {
-  background-color: transparent;
-  border: 1px solid currentColor;
-  color: var(--primary-color);
-  padding: 0.5rem 1rem;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition: all 0.3s ease;
+  border: 1px solid #4299e1;
+  color: #4299e1;
+  background: transparent;
 }
 
 .btn-outline:hover {
-  background-color: rgba(var(--primary-color-rgb), 0.1);
+  background-color: rgba(66, 153, 225, 0.1);
 }
 
-.loading {
+.btn-primary {
+  background-color: #4299e1;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #3182ce;
+}
+
+.btn-secondary {
+  background-color: #e2e8f0;
+  color: #4a5568;
+}
+
+.btn-secondary:hover {
+  background-color: #cbd5e0;
+}
+
+.btn-danger {
+  background-color: #e53e3e;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c53030;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.875rem;
+}
+
+.btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.5s ease;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
-.chat-box {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-.message {
-  display: flex;
-  flex-direction: column;
-  max-width: 80%;
-}
-.message.agent {
-  align-self: flex-start;
-  background-color: #f1f1ff;
-  padding: 1rem;
-  border-radius: 12px;
-}
-.message.student {
-  align-self: flex-end;
-  background-color: #d1fcd3;
-  padding: 1rem;
-  border-radius: 12px;
-}
-.label {
-  font-size: 0.75rem;
-  font-weight: bold;
-  margin-bottom: 0.25rem;
+
+.image-preview {
+  margin-top: 16px;
+  text-align: center;
 }
 
+.preview-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+}
+
+.submit-controls {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+
+/* Debug panel */
+.debug-panel {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: #fffde7;
+  border: 1px solid #fff59d;
+  border-radius: 4px;
+}
+
+.debug-panel h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #f57f17;
+}
+
+.debug-panel p {
+  margin: 4px 0;
+  font-family: monospace;
+}
+
+.debug-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Conversation styles */
+.conversation-area {
+  margin-top: 32px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.messages-container {
+  height: 300px;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: #f9f9f9;
+}
+
+.empty-messages {
+  text-align: center;
+  color: #666;
+  margin: auto 0;
+  font-style: italic;
+}
+
+.message {
+  max-width: 80%;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #e9f5fe;
+  border-bottom-right-radius: 4px;
+}
+
+.message.teacher {
+  align-self: flex-start;
+  background-color: #f0f0f0;
+  border-bottom-left-radius: 4px;
+}
+
+.message.system {
+  align-self: center;
+  background-color: #fff3cd;
+  color: #856404;
+  font-style: italic;
+}
+
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 2px;
+  background-color: #888;
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: dot-pulse 1.5s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dot-pulse {
+  0%, 60%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  30% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+}
+
+.input-reply {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background-color: white;
+  border-top: 1px solid #ddd;
+}
+
+.input-reply textarea {
+  flex: 1;
+  max-height: 100px;
+  min-height: 40px;
+}
+
+.input-reply button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #4299e1;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+
+.input-reply button:hover {
+  background-color: #3182ce;
+}
+
+.input-reply button:disabled {
+  background-color: #cbd5e0;
+  cursor: not-allowed;
+}
 </style>
